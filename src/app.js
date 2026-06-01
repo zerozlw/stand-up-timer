@@ -317,7 +317,7 @@ function showReminder(text, subtext) {
   const btnText = isStand ? '好的！我坐下！' : '我站起来了';
 
   // Create reminder popup window
-  const url = `src/reminder.html?title=${encodeURIComponent(text)}&sub=${encodeURIComponent(subtext)}&btn=${encodeURIComponent(btnText)}&stand=${isStand ? '1' : '0'}`;
+  const url = `tauri://localhost/reminder.html?title=${encodeURIComponent(text)}&sub=${encodeURIComponent(subtext)}&btn=${encodeURIComponent(btnText)}&stand=${isStand ? '1' : '0'}`;
 
   (async () => {
     try {
@@ -695,7 +695,7 @@ async function showSassMessage() {
   const y = Math.round(pos.y / scale - bubbleH - 2);
   try {
     bubbleWin = new WebviewWindow('bubble-' + Date.now(), {
-      url: 'src/bubble.html?msg=' + encodeURIComponent(msg),
+      url: `tauri://localhost/bubble.html?msg=${encodeURIComponent(msg)}`,
       width: bubbleW,
       height: bubbleH,
       x, y,

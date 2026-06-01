@@ -317,7 +317,7 @@ function showReminder(text, subtext) {
   const btnText = isStand ? '好的！我坐下！' : '我站起来了';
 
   // Create reminder popup window
-  const url = `tauri://localhost/reminder.html?title=${encodeURIComponent(text)}&sub=${encodeURIComponent(subtext)}&btn=${encodeURIComponent(btnText)}&stand=${isStand ? '1' : '0'}`;
+  const url = `${window.location.origin}/reminder.html?title=${encodeURIComponent(text)}&sub=${encodeURIComponent(subtext)}&btn=${encodeURIComponent(btnText)}&stand=${isStand ? '1' : '0'}`;
 
   (async () => {
     try {
@@ -695,7 +695,7 @@ async function showSassMessage() {
   const y = Math.round(pos.y / scale - bubbleH - 2);
   try {
     bubbleWin = new WebviewWindow('bubble-' + Date.now(), {
-      url: `tauri://localhost/bubble.html?msg=${encodeURIComponent(msg)}`,
+      url: `${window.location.origin}/bubble.html?msg=${encodeURIComponent(msg)}`,
       width: bubbleW,
       height: bubbleH,
       x, y,
@@ -957,6 +957,9 @@ async function init() {
   await setupWindowControls();
   await setupTrayListeners();
 
+
+  // Disable OS window shadow
+  setTimeout(() => { try { win.setShadow(false); } catch (e) {} }, 100);
 
   // Check if currently in rest time before starting timer
   const restState = getRestState();

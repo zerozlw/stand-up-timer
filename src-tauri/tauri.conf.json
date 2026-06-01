@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-config-schema/schema.json",
-  "productName": "Stand Up Timer",
+  "productName": "MeowUp",
   "version": "0.1.0",
-  "identifier": "com.standup.timer",
+  "identifier": "com.meowup.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -12,12 +12,13 @@
   "app": {
     "windows": [
       {
-        "title": "Stand Up Timer",
+        "title": "MeowUp",
         "width": 140,
         "height": 150,
         "resizable": true,
         "decorations": false,
         "transparent": true,
+        "shadow": false,
         "center": true
       }
     ],

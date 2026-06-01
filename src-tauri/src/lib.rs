@@ -1,4 +1,5 @@
 use tauri::{
+    image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
@@ -16,8 +17,9 @@ pub fn run() {
 
             // Build tray icon
             let _tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
-                .tooltip("坐站提醒小助手")
+                .tooltip("MeowUp")
                 .on_menu_event(move |app, event| match event.id.as_ref() {
                     "show" => {
                         if let Some(window) = app.get_webview_window("main") {

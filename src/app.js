@@ -55,7 +55,7 @@ const sassMessages = [
 
 // --- State ---
 let state = {
-  mode: 'sit', // 'sit' | 'stand' | 'remind-sit' | 'remind-stand'
+  mode: 'sit', // 'sit' | 'stand' | 'remind-sit' | 'remind-stand' | 'rest' | 'off'
   paused: false,
   miniMode: false,
   character: 'cat', // 'bear' | 'cat'
@@ -63,13 +63,20 @@ let state = {
   standMinutes: 5,
   remaining: 45 * 60,
   total: 45 * 60,
-  endTime: 0,       // wall-clock timestamp when timer ends
-  pausedRemaining: 0, // remaining seconds when paused
+  endTime: 0,
+  pausedRemaining: 0,
   timerId: null,
   remindTimeoutId: null,
   showingSass: false,
   initDone: false,
-  savedMiniPos: null, // in-memory position
+  savedMiniPos: null,
+  currentRestMsg: '', // cached rest mode message
+  // Rest time settings (HH:MM strings)
+  lunchStart: '12:00',
+  lunchDuration: 60, // minutes
+  offWork: '18:00',
+  workStart: '09:00',
+  restCheckId: null, // interval for checking rest time
 };
 
 let win;
@@ -174,10 +181,15 @@ function getCatSVG(mode) {
 
 function drawCharacter(mode) {
   const isStanding = mode === 'stand' || mode.startsWith('remind');
+  const isRest = mode === 'rest' || mode === 'off';
   const mainSvg = document.getElementById('bearSvg');
   const miniSvg = document.getElementById('miniBearSvg');
 
-  if (state.character === 'custom') {
+  if (isRest) {
+    // Rest mode: use dream image
+    mainSvg.outerHTML = `<img id="bearSvg" src="${dreamImg}" class="bear" draggable="false" style="width:100%;height:100%;object-fit:contain;" />`;
+    miniSvg.outerHTML = `<img id="miniBearSvg" src="${dreamImg}" class="mini-bear" draggable="false" style="width:100%;height:100%;object-fit:contain;" />`;
+  } else if (state.character === 'custom') {
     const src = isStanding ? standImg : sitImg;
     mainSvg.outerHTML = `<img id="bearSvg" src="${src}" class="bear" draggable="false" style="width:100%;height:100%;object-fit:contain;" />`;
     miniSvg.outerHTML = `<img id="miniBearSvg" src="${src}" class="mini-bear" draggable="false" style="width:100%;height:100%;object-fit:contain;" />`;
@@ -225,7 +237,36 @@ function updateDisplay() {
   miniRing.style.strokeDashoffset = miniCircumference * (1 - progress);
 
   const isStand = state.mode === 'stand';
-  if (isStand) {
+  const isRest = state.mode === 'rest';
+  const isOff = state.mode === 'off';
+  const isRemind = state.mode.startsWith('remind');
+
+  app.classList.remove('stand-mode', 'rest-mode');
+  miniMode.classList.remove('stand-mode', 'rest-mode');
+
+  // Hide pause/reset during rest, off, and remind states
+  const pauseBtn = document.getElementById('pauseBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  if (isRest || isOff || isRemind) {
+    pauseBtn.style.display = 'none';
+    resetBtn.style.display = 'none';
+  } else {
+    pauseBtn.style.display = '';
+    resetBtn.style.display = '';
+  }
+
+  if (isOff) {
+    label.textContent = state.currentRestMsg || '已下班';
+    display.textContent = '🌙';
+    if (!state.showingSass) miniLabel.textContent = '明天见';
+    app.classList.add('rest-mode');
+    miniMode.classList.add('rest-mode');
+  } else if (isRest) {
+    label.textContent = state.currentRestMsg || '午休中';
+    if (!state.showingSass) miniLabel.textContent = '安心摸鱼';
+    app.classList.add('rest-mode');
+    miniMode.classList.add('rest-mode');
+  } else if (isStand) {
     label.textContent = '站姿时间';
     if (!state.showingSass) miniLabel.textContent = '后可以坐下';
     app.classList.add('stand-mode');
@@ -233,8 +274,6 @@ function updateDisplay() {
   } else {
     label.textContent = '坐姿时间';
     if (!state.showingSass) miniLabel.textContent = '后站起来';
-    app.classList.remove('stand-mode');
-    miniMode.classList.remove('stand-mode');
   }
 }
 
@@ -271,19 +310,42 @@ function triggerReminder() {
   }
 }
 
+let reminderWin = null;
+
 function showReminder(text, subtext) {
-  try {
-    sendNotification({ title: '坐站提醒', body: text });
-  } catch (e) {
-    console.log('Notification failed:', e);
-  }
+  const isStand = state.mode === 'remind-stand';
+  const btnText = isStand ? '好的！我坐下！' : '我站起来了';
 
-  // Store reminder text for later
-  document.getElementById('reminderText').textContent = text;
-  document.querySelector('.reminder-subtext').textContent = subtext;
+  // Create reminder popup window
+  const url = `src/reminder.html?title=${encodeURIComponent(text)}&sub=${encodeURIComponent(subtext)}&btn=${encodeURIComponent(btnText)}&stand=${isStand ? '1' : '0'}`;
 
+  (async () => {
+    try {
+      let x = 300, y = 200;
+      if (state.miniMode) {
+        const pos = await win.outerPosition();
+        const scale = await win.scaleFactor();
+        x = Math.round(pos.x / scale - 80);
+        y = Math.round(pos.y / scale - 200);
+      }
+      reminderWin = new WebviewWindow('reminder-' + Date.now(), {
+        url,
+        width: 340,
+        height: 280,
+        x, y,
+        decorations: false,
+        transparent: true,
+        shadow: false,
+        alwaysOnTop: true,
+        resizable: false,
+        skipTaskbar: true,
+        center: !state.miniMode,
+      });
+    } catch (e) {}
+  })();
+
+  // Also update mini mode UI if in mini mode
   if (state.miniMode) {
-    // Mini mode: show persistent bubble + shake + confirm button
     const miniEl = document.getElementById('miniMode');
     miniEl.classList.add('reminding');
     state.showingSass = true;
@@ -292,24 +354,18 @@ function showReminder(text, subtext) {
     const tooltip = document.getElementById('miniTooltip');
     tooltip.classList.add('reminder-bubble');
 
-    // Show confirm button
     const btn = document.getElementById('miniConfirmBtn');
-    btn.textContent = state.mode === 'remind-sit' ? '我站起来了' : '好的！我坐下！';
+    btn.textContent = btnText;
     btn.style.display = 'block';
-
-    // 30s auto-dismiss
-    state.remindTimeoutId = setInterval(() => {
-      // no-op countdown, just wait
-    }, 30000);
-    setTimeout(() => {
-      if (state.mode.startsWith('remind')) {
-        dismissReminder();
-      }
-    }, 30000);
-  } else {
-    // Normal mode: show overlay directly
-    document.getElementById('reminderOverlay').style.display = 'flex';
   }
+
+  // 30s auto-dismiss
+  state.remindTimeoutId = setInterval(() => {}, 30000);
+  setTimeout(() => {
+    if (state.mode.startsWith('remind')) {
+      dismissReminder();
+    }
+  }, 30000);
 
   drawCharacter(state.mode);
 
@@ -334,6 +390,11 @@ function dismissReminder() {
   document.getElementById('miniTooltip').classList.remove('reminder-bubble');
   document.getElementById('miniConfirmBtn').style.display = 'none';
   state.showingSass = false;
+
+  if (reminderWin) {
+    try { reminderWin.close(); } catch (e) {}
+    reminderWin = null;
+  }
 
   if (state.remindTimeoutId) {
     clearInterval(state.remindTimeoutId);
@@ -398,6 +459,127 @@ function resetTimer() {
   startTimer();
 }
 
+// --- Rest Time ---
+function timeToMinutes(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function getRestState() {
+  const now = new Date();
+  const current = now.getHours() * 60 + now.getMinutes();
+  const lunchS = timeToMinutes(state.lunchStart);
+  const lunchE = lunchS + state.lunchDuration;
+  const off = timeToMinutes(state.offWork);
+  const workS = timeToMinutes(state.workStart);
+
+  // Lunch break
+  if (current >= lunchS && current < lunchE) {
+    return { type: 'lunch', endMinutes: lunchE - current };
+  }
+  // Off work (after work until midnight, or midnight until work start)
+  if (current >= off || current < workS) {
+    return { type: 'off' };
+  }
+  return null;
+}
+
+function enterRestMode(restState) {
+  if (state.mode === 'rest' || state.mode === 'off') return;
+
+  // Pause timer
+  if (state.timerId) {
+    clearInterval(state.timerId);
+    state.timerId = null;
+  }
+  state.paused = true;
+
+  if (restState.type === 'lunch') {
+    state.mode = 'rest';
+    state.currentRestMsg = restMessages[Math.floor(Math.random() * restMessages.length)];
+    state.total = state.lunchDuration * 60;
+    state.remaining = restState.endMinutes * 60;
+    state.endTime = Date.now() + state.remaining * 1000;
+    // Start rest countdown
+    state.timerId = setInterval(() => {
+      const now = Date.now();
+      state.remaining = Math.max(0, Math.ceil((state.endTime - now) / 1000));
+      updateDisplay();
+      if (state.remaining <= 0) {
+        exitRestMode();
+      }
+    }, 500);
+  } else {
+    state.mode = 'off';
+    state.currentRestMsg = offMessages[Math.floor(Math.random() * offMessages.length)];
+    state.remaining = 0;
+    state.total = 1;
+  }
+
+  drawCharacter(state.mode);
+  updateDisplay();
+}
+
+function exitRestMode() {
+  if (state.mode !== 'rest' && state.mode !== 'off') return;
+
+  if (state.timerId) {
+    clearInterval(state.timerId);
+    state.timerId = null;
+  }
+
+  // Resume normal timer
+  state.mode = 'sit';
+  state.paused = false;
+  state.total = state.sitMinutes * 60;
+  state.remaining = state.sitMinutes * 60;
+  state.endTime = Date.now() + state.remaining * 1000;
+
+  state.timerId = setInterval(() => {
+    if (state.paused) return;
+    const now = Date.now();
+    state.remaining = Math.max(0, Math.ceil((state.endTime - now) / 1000));
+    if (state.remaining <= 0) {
+      clearInterval(state.timerId);
+      state.timerId = null;
+      triggerReminder();
+    }
+    updateDisplay();
+  }, 500);
+
+  drawCharacter(state.mode);
+  updateDisplay();
+}
+
+function startRestCheck() {
+  if (state.restCheckId) clearInterval(state.restCheckId);
+  state.restCheckId = setInterval(() => {
+    const rest = getRestState();
+    if (rest && state.mode !== 'rest' && state.mode !== 'off') {
+      enterRestMode(rest);
+    } else if (!rest && (state.mode === 'rest' || state.mode === 'off')) {
+      exitRestMode();
+    }
+  }, 30000); // Check every 30s
+}
+
+// --- Rest messages ---
+const restMessages = [
+  '午休时间，安心摸鱼',
+  '该吃饭了，别亏待自己',
+  '休息一下，下午更有精神',
+  '摸鱼时间到！',
+  '放下键盘，享受午餐',
+];
+
+const offMessages = [
+  '下班啦，明天见！',
+  '今天辛苦了，早点休息',
+  '工作做完了就别想了',
+  '回家！你的猫在等你',
+  '关电脑，去生活',
+];
+
 // --- Settings ---
 function updateCharacterButtons() {
   document.querySelectorAll('.char-btn').forEach(btn => {
@@ -413,6 +595,10 @@ function toggleSettings() {
   if (isHidden) {
     document.getElementById('sitMinutes').value = state.sitMinutes;
     document.getElementById('standMinutes').value = state.standMinutes;
+    document.getElementById('lunchStart').value = state.lunchStart;
+    document.getElementById('lunchDuration').value = state.lunchDuration;
+    document.getElementById('offWork').value = state.offWork;
+    document.getElementById('workStart').value = state.workStart;
     updateCharacterButtons();
   }
 }
@@ -424,11 +610,51 @@ function saveSettings() {
   state.sitMinutes = Math.max(1, Math.min(120, sitMin));
   state.standMinutes = Math.max(1, Math.min(60, standMin));
 
+  const lunchStart = document.getElementById('lunchStart').value || '12:00';
+  const lunchDuration = parseInt(document.getElementById('lunchDuration').value) || 60;
+  const offWork = document.getElementById('offWork').value || '18:00';
+  const workStart = document.getElementById('workStart').value || '09:00';
+
+  const ls = timeToMinutes(lunchStart);
+  const le = ls + lunchDuration;
+  const off = timeToMinutes(offWork);
+  const ws = timeToMinutes(workStart);
+
+  // Validation
+  function showToast(msg) {
+    const t = document.getElementById('saveToast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+  if (lunchDuration < 10 || lunchDuration > 180) { showToast('午休时长需在 10-180 分钟'); return; }
+  if (ws >= off) { showToast('上班需早于下班'); return; }
+  if (ls < ws) { showToast('午休不能早于上班'); return; }
+  if (le > off) { showToast('午休不能超过下班'); return; }
+
+  state.lunchStart = lunchStart;
+  state.lunchDuration = lunchDuration;
+  state.offWork = offWork;
+  state.workStart = workStart;
+
   localStorage.setItem('sitMinutes', state.sitMinutes);
   localStorage.setItem('standMinutes', state.standMinutes);
+  localStorage.setItem('lunchStart', state.lunchStart);
+  localStorage.setItem('lunchDuration', state.lunchDuration);
+  localStorage.setItem('offWork', state.offWork);
+  localStorage.setItem('workStart', state.workStart);
+
+  // Exit current rest mode if active
+  if (state.mode === 'rest' || state.mode === 'off') {
+    exitRestMode();
+  }
 
   resetTimer();
   toggleSettings();
+
+  // Immediately check if current time matches rest period
+  const rest = getRestState();
+  if (rest) enterRestMode(rest);
 }
 
 // --- Sass Message (separate bubble window) ---
@@ -694,6 +920,16 @@ async function init() {
   if (savedStand) state.standMinutes = parseInt(savedStand);
   if (savedChar) state.character = savedChar;
 
+  // Load rest time settings
+  const savedLunchStart = localStorage.getItem('lunchStart');
+  const savedLunchDuration = localStorage.getItem('lunchDuration');
+  const savedOffWork = localStorage.getItem('offWork');
+  const savedWorkStart = localStorage.getItem('workStart');
+  if (savedLunchStart) state.lunchStart = savedLunchStart;
+  if (savedLunchDuration) state.lunchDuration = parseInt(savedLunchDuration);
+  if (savedOffWork) state.offWork = savedOffWork;
+  if (savedWorkStart) state.workStart = savedWorkStart;
+
   state.total = state.sitMinutes * 60;
   state.remaining = state.sitMinutes * 60;
 
@@ -704,6 +940,7 @@ async function init() {
   document.getElementById('pauseBtn').addEventListener('click', togglePause);
   document.getElementById('resetBtn').addEventListener('click', resetTimer);
   document.getElementById('settingsBtn').addEventListener('click', toggleSettings);
+  document.getElementById('settingsCloseBtn').addEventListener('click', toggleSettings);
   document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
   document.getElementById('reminderBtn').addEventListener('click', dismissReminder);
 
@@ -721,7 +958,16 @@ async function init() {
   await setupTrayListeners();
 
 
-  startTimer();
+  // Check if currently in rest time before starting timer
+  const restState = getRestState();
+  if (restState) {
+    startTimer();
+    enterRestMode(restState);
+  } else {
+    startTimer();
+  }
+
+  startRestCheck();
 
   // Start in mini mode by default
   await enterMiniMode();

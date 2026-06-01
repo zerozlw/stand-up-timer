@@ -70,23 +70,79 @@
 
       <!-- Settings panel (hidden by default) -->
       <div class="settings-panel" id="settingsPanel" style="display:none">
-        <div class="setting-row">
-          <label>小伙伴</label>
+        <div class="settings-title">
+          <span>⚙️ 设置</span>
+          <button class="settings-close" id="settingsCloseBtn">✕</button>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">🐱 小伙伴</div>
           <div class="character-select" id="characterSelect">
             <button class="char-btn active" data-char="cat">🐱</button>
             <button class="char-btn" data-char="bear">🐻</button>
             <button class="char-btn" data-char="custom">🖼️</button>
           </div>
         </div>
-        <div class="setting-row">
-          <label>坐姿时长（分钟）</label>
-          <input type="number" id="sitMinutes" value="45" min="1" max="120" />
+
+        <div class="settings-section">
+          <div class="settings-section-title">⏰ 计时</div>
+          <div class="setting-row">
+            <label>坐姿时长</label>
+            <div class="setting-input-group">
+              <input type="number" id="sitMinutes" value="45" min="1" max="120" />
+              <span class="setting-unit">分钟</span>
+            </div>
+          </div>
+          <div class="setting-row">
+            <label>站姿时长</label>
+            <div class="setting-input-group">
+              <input type="number" id="standMinutes" value="5" min="1" max="60" />
+              <span class="setting-unit">分钟</span>
+            </div>
+          </div>
         </div>
-        <div class="setting-row">
-          <label>站姿时长（分钟）</label>
-          <input type="number" id="standMinutes" value="5" min="1" max="60" />
+
+        <div class="settings-section">
+          <div class="settings-section-title">🕐 工作时间</div>
+          <div class="setting-row">
+            <label>上班时间</label>
+            <input type="time" id="workStart" value="09:00" />
+          </div>
+          <div class="setting-row">
+            <label>下班时间</label>
+            <input type="time" id="offWork" value="18:00" />
+          </div>
         </div>
-        <button class="btn btn-confirm" id="saveSettingsBtn">保存</button>
+
+        <div class="settings-section">
+          <div class="settings-section-title">☕ 午休</div>
+          <div class="setting-row">
+            <label>开始时间</label>
+            <input type="time" id="lunchStart" value="12:00" />
+          </div>
+          <div class="setting-row">
+            <label>休息时长</label>
+            <select id="lunchDuration">
+              <option value="10">10 分钟</option>
+              <option value="20">20 分钟</option>
+              <option value="30">30 分钟</option>
+              <option value="40">40 分钟</option>
+              <option value="50">50 分钟</option>
+              <option value="60" selected>1 小时</option>
+              <option value="70">1 小时 10 分</option>
+              <option value="80">1 小时 20 分</option>
+              <option value="90">1 小时 30 分</option>
+              <option value="100">1 小时 40 分</option>
+              <option value="110">1 小时 50 分</option>
+              <option value="120">2 小时</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="save-row">
+          <button class="btn btn-confirm" id="saveSettingsBtn">保存</button>
+          <div class="save-toast" id="saveToast"></div>
+        </div>
       </div>
     </div>
 

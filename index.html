@@ -15,10 +15,7 @@
         MeowUp
       </span>
       <div class="titlebar-buttons">
-        <button class="titlebar-btn" id="minimizeBtn" title="最小化">
-          <svg width="12" height="12" viewBox="0 0 12 12"><rect y="5" width="12" height="2" rx="1" fill="currentColor"/></svg>
-        </button>
-        <button class="titlebar-btn" id="closeBtn" title="最小化到托盘">
+        <button class="titlebar-btn" id="closeBtn" title="回到迷你模式">
           <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
       </div>
@@ -63,6 +60,11 @@
             <polygon points="5,3 19,12 5,21"/>
           </svg>
         </button>
+        <button class="btn btn-secondary" id="switchModeBtn" title="切换坐/站">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 16V4M7 4L3 8M7 4l4 4M17 8v12M17 20l4-4M17 20l-4-4"/>
+          </svg>
+        </button>
         <button class="btn btn-secondary" id="settingsBtn" title="设置">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"/>
@@ -81,9 +83,9 @@
         <div class="settings-section">
           <div class="settings-section-title">🐱 小伙伴</div>
           <div class="character-select" id="characterSelect">
-            <button class="char-btn active" data-char="cat">🐱</button>
-            <button class="char-btn" data-char="bear">🐻</button>
-            <button class="char-btn" data-char="custom">🖼️</button>
+            <button class="char-btn active" data-char="white-blue"><img src="/src/white-blue-cat.png" class="char-icon" /></button>
+            <button class="char-btn" data-char="black"><img src="/src/black-cat.png" class="char-icon" /></button>
+            <button class="char-btn" data-char="ginger"><img src="/src/ginger-cat.png" class="char-icon" /></button>
           </div>
         </div>
 
@@ -109,11 +111,31 @@
           <div class="settings-section-title">🕐 工作时间</div>
           <div class="setting-row">
             <label>上班时间</label>
-            <input type="time" id="workStart" value="09:00" />
+            <select id="workStart">
+              <option value="07:00">07:00</option>
+              <option value="07:30">07:30</option>
+              <option value="08:00">08:00</option>
+              <option value="08:30">08:30</option>
+              <option value="09:00" selected>09:00</option>
+              <option value="09:30">09:30</option>
+              <option value="10:00">10:00</option>
+              <option value="10:30">10:30</option>
+              <option value="11:00">11:00</option>
+            </select>
           </div>
           <div class="setting-row">
             <label>下班时间</label>
-            <input type="time" id="offWork" value="18:00" />
+            <select id="offWork">
+              <option value="17:00">17:00</option>
+              <option value="17:30">17:30</option>
+              <option value="18:00" selected>18:00</option>
+              <option value="18:30">18:30</option>
+              <option value="19:00">19:00</option>
+              <option value="19:30">19:30</option>
+              <option value="20:00">20:00</option>
+              <option value="20:30">20:30</option>
+              <option value="21:00">21:00</option>
+            </select>
           </div>
         </div>
 
@@ -121,7 +143,15 @@
           <div class="settings-section-title">☕ 午休</div>
           <div class="setting-row">
             <label>开始时间</label>
-            <input type="time" id="lunchStart" value="12:00" />
+            <select id="lunchStart">
+              <option value="11:00">11:00</option>
+              <option value="11:30">11:30</option>
+              <option value="12:00" selected>12:00</option>
+              <option value="12:30">12:30</option>
+              <option value="13:00">13:00</option>
+              <option value="13:30">13:30</option>
+              <option value="14:00">14:00</option>
+            </select>
           </div>
           <div class="setting-row">
             <label>休息时长</label>

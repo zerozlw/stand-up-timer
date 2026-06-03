@@ -444,17 +444,20 @@ html, body {
 }
 
 .setting-row input[type="time"] {
-  width: 90px;
+  width: 100px;
   height: 32px;
   border: 2px solid rgba(255, 155, 80, 0.2);
   border-radius: 8px;
-  text-align: center;
+  text-align: left;
+  padding-left: 8px;
+  padding-right: 8px;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
   outline: none;
   transition: border-color 0.2s;
   font-family: inherit;
+  cursor: pointer;
 }
 
 .setting-row input[type="time"]:focus {
@@ -475,6 +478,13 @@ html, body {
   font-family: inherit;
   background: white;
   cursor: pointer;
+  padding-right: 20px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238B7355' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
 }
 
 .setting-row select:focus {
@@ -562,32 +572,40 @@ html, body {
 /* Character selector */
 .character-select {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .char-btn {
-  width: 36px;
-  height: 36px;
+  width: 52px;
+  height: 52px;
   border: 2px solid rgba(255, 155, 80, 0.2);
-  border-radius: 10px;
+  border-radius: 12px;
   background: white;
-  font-size: 18px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
+  padding: 4px;
 }
 
 .char-btn:hover {
   border-color: var(--accent-light);
-  transform: scale(1.1);
+  transform: scale(1.08);
 }
 
 .char-btn.active {
   border-color: var(--accent);
   background: var(--bg-secondary);
   box-shadow: 0 2px 8px rgba(255, 155, 80, 0.2);
+}
+
+.char-icon {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 8px;
 }
 
 /* Reminder overlay */

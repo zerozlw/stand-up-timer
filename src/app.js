@@ -2,12 +2,37 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { LogicalSize, LogicalPosition } from '@tauri-apps/api/dpi';
 import { sendNotification, requestPermission } from '@tauri-apps/plugin-notification';
-import sitImg from './sit-new.png';
-import standImg from './stand-new.png';
+import blackCatIcon from './black-cat.png';
+import gingerCatIcon from './ginger-cat.png';
+import whiteBlueCatIcon from './white-blue-cat.png';
 
-import angryImg from './angry.png';
-import relaxImg from './relax.png';
-import dreamImg from './dream.png';
+// Cat breed images - all states
+const catImages = {
+  'white-blue': {
+    sit: new URL('./sit-white-blue.png', import.meta.url).href,
+    stand: new URL('./stand-white-blue.png', import.meta.url).href,
+    angry: new URL('./angry-white-blue.png', import.meta.url).href,
+    relax: new URL('./relax-white-blue.png', import.meta.url).href,
+    dream: new URL('./dream-white-blue.png', import.meta.url).href,
+    icon: whiteBlueCatIcon,
+  },
+  'black': {
+    sit: new URL('./sit-black.png', import.meta.url).href,
+    stand: new URL('./stand-black.png', import.meta.url).href,
+    angry: new URL('./angry-black.png', import.meta.url).href,
+    relax: new URL('./relax-black.png', import.meta.url).href,
+    dream: new URL('./dream-black.png', import.meta.url).href,
+    icon: blackCatIcon,
+  },
+  'ginger': {
+    sit: new URL('./sit-ginger.png', import.meta.url).href,
+    stand: new URL('./stand-ginger.png', import.meta.url).href,
+    angry: new URL('./angry-ginger.png', import.meta.url).href,
+    relax: new URL('./relax-ginger.png', import.meta.url).href,
+    dream: new URL('./dream-ginger.png', import.meta.url).href,
+    icon: gingerCatIcon,
+  },
+};
 
 // --- Funny messages ---
 const sassMessages = [
@@ -58,7 +83,7 @@ let state = {
   mode: 'sit', // 'sit' | 'stand' | 'remind-sit' | 'remind-stand' | 'rest' | 'off'
   paused: false,
   miniMode: false,
-  character: 'cat', // 'bear' | 'cat'
+  character: 'white-blue', // 'white-blue' | 'black' | 'ginger'
   sitMinutes: 45,
   standMinutes: 5,
   remaining: 45 * 60,
@@ -182,28 +207,30 @@ function getCatSVG(mode) {
 function drawCharacter(mode) {
   const isStanding = mode === 'stand' || mode.startsWith('remind');
   const isRest = mode === 'rest' || mode === 'off';
-  const mainSvg = document.getElementById('bearSvg');
-  const miniSvg = document.getElementById('miniBearSvg');
+  const mainEl = document.getElementById('bearSvg');
+  const miniEl = document.getElementById('miniBearSvg');
+  const breed = catImages[state.character] || catImages['white-blue'];
 
+  let src;
   if (isRest) {
-    // Rest mode: use dream image
-    mainSvg.outerHTML = `<img id="bearSvg" src="${dreamImg}" class="bear" draggable="false" style="width:100%;height:100%;object-fit:contain;" />`;
-    miniSvg.outerHTML = `<img id="miniBearSvg" src="${dreamImg}" class="mini-bear" draggable="false" style="width:100%;height:100%;object-fit:contain;" />`;
-  } else if (state.character === 'custom') {
-    const src = isStanding ? standImg : sitImg;
-    mainSvg.outerHTML = `<img id="bearSvg" src="${src}" class="bear" draggable="false" style="width:100%;height:100%;object-fit:contain;" />`;
+    src = breed.dream;
+  } else if (isStanding) {
+    src = breed.stand;
+  } else {
+    src = breed.sit;
+  }
+
+  if (mainEl.tagName !== 'IMG') {
+    mainEl.outerHTML = `<img id="bearSvg" src="${src}" class="bear" draggable="false" style="width:100%;height:100%;object-fit:contain;" />`;
+  } else {
+    mainEl.src = src;
+  }
+
+  const miniSvg = document.getElementById('miniBearSvg');
+  if (miniSvg.tagName !== 'IMG') {
     miniSvg.outerHTML = `<img id="miniBearSvg" src="${src}" class="mini-bear" draggable="false" style="width:100%;height:100%;object-fit:contain;" />`;
   } else {
-    // Restore to SVG if switching from custom
-    const mainEl = document.getElementById('bearSvg');
-    const miniEl = document.getElementById('miniBearSvg');
-    if (mainEl.tagName === 'IMG') {
-      mainEl.outerHTML = '<svg id="bearSvg" viewBox="0 0 200 200" class="bear"></svg>';
-      miniEl.outerHTML = '<svg id="miniBearSvg" viewBox="0 0 200 200" class="mini-bear"></svg>';
-    }
-    const svg = state.character === 'cat' ? getCatSVG(mode) : getBearSVG(mode);
-    document.getElementById('bearSvg').innerHTML = svg;
-    document.getElementById('miniBearSvg').innerHTML = svg;
+    miniSvg.src = src;
   }
 }
 
@@ -244,16 +271,20 @@ function updateDisplay() {
   app.classList.remove('stand-mode', 'rest-mode');
   miniMode.classList.remove('stand-mode', 'rest-mode');
 
-  // Hide pause/reset during rest, off, and remind states
+  // Hide pause/reset/switch during rest, off, and remind states
   const pauseBtn = document.getElementById('pauseBtn');
   const resetBtn = document.getElementById('resetBtn');
+  const switchBtn = document.getElementById('switchModeBtn');
   if (isRest || isOff || isRemind) {
     pauseBtn.style.display = 'none';
     resetBtn.style.display = 'none';
+    switchBtn.style.display = 'none';
   } else {
     pauseBtn.style.display = '';
     resetBtn.style.display = '';
+    switchBtn.style.display = '';
   }
+
 
   if (isOff) {
     label.textContent = state.currentRestMsg || '已下班';
@@ -316,35 +347,22 @@ function showReminder(text, subtext) {
   const isStand = state.mode === 'remind-stand';
   const btnText = isStand ? '好的！我坐下！' : '我站起来了';
 
-  // Create reminder popup window
-  const url = `${window.location.origin}/reminder.html?title=${encodeURIComponent(text)}&sub=${encodeURIComponent(subtext)}&btn=${encodeURIComponent(btnText)}&stand=${isStand ? '1' : '0'}`;
+  // In main window mode: create reminder popup window
+  if (!state.miniMode) {
+    const url = `${window.location.origin}/reminder.html?title=${encodeURIComponent(text)}&sub=${encodeURIComponent(subtext)}&btn=${encodeURIComponent(btnText)}&stand=${isStand ? '1' : '0'}`;
+    (async () => {
+      try {
+        reminderWin = new WebviewWindow('reminder-' + Date.now(), {
+          url,
+          width: 340, height: 280, x: 300, y: 200,
+          decorations: false, transparent: true, shadow: false,
+          alwaysOnTop: true, resizable: false, skipTaskbar: true, center: true,
+        });
+      } catch (e) {}
+    })();
+  }
 
-  (async () => {
-    try {
-      let x = 300, y = 200;
-      if (state.miniMode) {
-        const pos = await win.outerPosition();
-        const scale = await win.scaleFactor();
-        x = Math.round(pos.x / scale - 80);
-        y = Math.round(pos.y / scale - 200);
-      }
-      reminderWin = new WebviewWindow('reminder-' + Date.now(), {
-        url,
-        width: 340,
-        height: 280,
-        x, y,
-        decorations: false,
-        transparent: true,
-        shadow: false,
-        alwaysOnTop: true,
-        resizable: false,
-        skipTaskbar: true,
-        center: !state.miniMode,
-      });
-    } catch (e) {}
-  })();
-
-  // Also update mini mode UI if in mini mode
+  // Update mini mode UI if in mini mode
   if (state.miniMode) {
     const miniEl = document.getElementById('miniMode');
     miniEl.classList.add('reminding');
@@ -436,6 +454,34 @@ function togglePause() {
     playIcon.style.display = 'none';
     status.textContent = '';
   }
+}
+
+function switchMode() {
+  if (state.mode.startsWith('remind') || state.mode === 'rest' || state.mode === 'off') return;
+
+  if (state.timerId) {
+    clearInterval(state.timerId);
+    state.timerId = null;
+  }
+
+  if (state.mode === 'sit') {
+    state.mode = 'stand';
+    state.total = state.standMinutes * 60;
+    state.remaining = state.standMinutes * 60;
+  } else {
+    state.mode = 'sit';
+    state.total = state.sitMinutes * 60;
+    state.remaining = state.sitMinutes * 60;
+  }
+
+  state.paused = false;
+  document.getElementById('pauseIcon').style.display = 'block';
+  document.getElementById('playIcon').style.display = 'none';
+  document.getElementById('statusMessage').textContent = '';
+
+  drawCharacter(state.mode);
+  updateDisplay();
+  startTimer();
 }
 
 function resetTimer() {
@@ -649,7 +695,6 @@ function saveSettings() {
     exitRestMode();
   }
 
-  resetTimer();
   toggleSettings();
 
   // Immediately check if current time matches rest period
@@ -677,11 +722,12 @@ async function showSassMessage() {
   // Block interaction on mini window
   try { await win.setIgnoreCursorEvents(true); } catch (e) {}
 
-  // Change expression
+  // Change expression based on breed
+  const breed = catImages[state.character] || catImages['white-blue'];
   let exprSrc = null;
-  if (idx < 42) exprSrc = angryImg;
-  else if (idx >= 54 && idx <= 84) exprSrc = relaxImg;
-  else if (idx >= 85) exprSrc = dreamImg;
+  if (idx < 42) exprSrc = breed.angry;
+  else if (idx >= 54 && idx <= 84) exprSrc = breed.relax;
+  else if (idx >= 85) exprSrc = breed.dream;
 
   if (exprSrc && miniBear) {
     miniBear.outerHTML = `<img id="miniBearSvg" src="${exprSrc}" class="mini-bear" draggable="false" style="width:100%;height:100%;object-fit:contain;" />`;
@@ -722,7 +768,7 @@ async function showSassMessage() {
     if (exprSrc) {
       const el = document.getElementById('miniBearSvg');
       if (el) {
-        el.outerHTML = '<svg id="miniBearSvg" viewBox="0 0 200 200" class="mini-bear"></svg>';
+        el.outerHTML = '<img id="miniBearSvg" class="mini-bear" draggable="false" style="width:100%;height:100%;object-fit:contain;" />';
         drawCharacter(state.mode);
       }
     }
@@ -826,11 +872,7 @@ async function exitMiniMode() {
 
 // --- Window controls ---
 async function setupWindowControls() {
-  document.getElementById('minimizeBtn').addEventListener('click', enterMiniMode);
-
-  document.getElementById('closeBtn').addEventListener('click', () => {
-    win.hide();
-  });
+  document.getElementById('closeBtn').addEventListener('click', enterMiniMode);
 
   // Drag: mousedown on non-interactive areas, with click detection
   let dragStartPos = null;
@@ -939,6 +981,7 @@ async function init() {
 
   document.getElementById('pauseBtn').addEventListener('click', togglePause);
   document.getElementById('resetBtn').addEventListener('click', resetTimer);
+  document.getElementById('switchModeBtn').addEventListener('click', switchMode);
   document.getElementById('settingsBtn').addEventListener('click', toggleSettings);
   document.getElementById('settingsCloseBtn').addEventListener('click', toggleSettings);
   document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);

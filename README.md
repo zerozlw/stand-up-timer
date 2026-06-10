@@ -16,7 +16,7 @@
 
 ## 📥 下载
 
-- [Windows 版本](https://zerozlw.github.io/stand-up-timer/stand-up-timer.exe)
+- [Windows 版本](https://zerozlw.github.io/meowup/stand-up-timer.exe)
 - macOS 版本（即将推出）
 
 ## 📋 更新日志

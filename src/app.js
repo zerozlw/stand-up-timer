@@ -1,6 +1,6 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { LogicalSize, LogicalPosition } from '@tauri-apps/api/dpi';
+import { LogicalSize, LogicalPosition, PhysicalPosition } from '@tauri-apps/api/dpi';
 import { sendNotification, requestPermission } from '@tauri-apps/plugin-notification';
 import blackCatIcon from './black-cat.png';
 import gingerCatIcon from './ginger-cat.png';
@@ -341,25 +341,16 @@ function triggerReminder() {
   }
 }
 
-let reminderWin = null;
-
 function showReminder(text, subtext) {
   const isStand = state.mode === 'remind-stand';
   const btnText = isStand ? '好的！我坐下！' : '我站起来了';
 
-  // In main window mode: create reminder popup window
+  // In main window: show built-in overlay
   if (!state.miniMode) {
-    const url = `${window.location.origin}/reminder.html?title=${encodeURIComponent(text)}&sub=${encodeURIComponent(subtext)}&btn=${encodeURIComponent(btnText)}&stand=${isStand ? '1' : '0'}`;
-    (async () => {
-      try {
-        reminderWin = new WebviewWindow('reminder-' + Date.now(), {
-          url,
-          width: 340, height: 280, x: 300, y: 200,
-          decorations: false, transparent: true, shadow: false,
-          alwaysOnTop: true, resizable: false, skipTaskbar: true, center: true,
-        });
-      } catch (e) {}
-    })();
+    document.getElementById('reminderText').textContent = text;
+    document.querySelector('.reminder-subtext').textContent = subtext;
+    document.getElementById('reminderBtn').textContent = isStand ? '好的！我坐下！' : '我站起来了';
+    document.getElementById('reminderOverlay').style.display = 'flex';
   }
 
   // Update mini mode UI if in mini mode
@@ -408,11 +399,6 @@ function dismissReminder() {
   document.getElementById('miniTooltip').classList.remove('reminder-bubble');
   document.getElementById('miniConfirmBtn').style.display = 'none';
   state.showingSass = false;
-
-  if (reminderWin) {
-    try { reminderWin.close(); } catch (e) {}
-    reminderWin = null;
-  }
 
   if (state.remindTimeoutId) {
     clearInterval(state.remindTimeoutId);
@@ -798,22 +784,20 @@ async function enterMiniMode() {
     await win.setShadow(false);
     await win.setResizable(false);
 
-    // Position first, then resize to fit actual content
-    const monitor = await win.currentMonitor();
-    if (monitor) {
-      const scale = monitor.scaleFactor;
-      const screenW = monitor.size.width / scale;
-      const screenH = monitor.size.height / scale;
+    // Resize first, then position
+    await win.setSize(new LogicalSize(140, 150));
 
-      if (state.savedMiniPos) {
-        const { x, y } = state.savedMiniPos;
-        await win.setPosition(new LogicalPosition(Math.round(x / scale), Math.round(y / scale)));
-      } else {
-        await win.setPosition(new LogicalPosition(screenW - 260, screenH - 240));
+    if (state.savedMiniPos) {
+      await win.setPosition(new PhysicalPosition(state.savedMiniPos.x, state.savedMiniPos.y));
+    } else {
+      const monitor = await win.currentMonitor();
+      if (monitor) {
+        const scale = monitor.scaleFactor;
+        const screenW = monitor.size.width / scale;
+        const screenH = monitor.size.height / scale;
+        await win.setPosition(new LogicalPosition(screenW - 160, screenH - 200));
       }
     }
-
-    await win.setSize(new LogicalSize(140, 150));
   } catch (e) {
     console.log('Mini mode setup error:', e);
   }
@@ -868,6 +852,7 @@ async function exitMiniMode() {
 
   drawCharacter(state.mode);
   updateDisplay();
+
 }
 
 // --- Window controls ---
@@ -1000,6 +985,31 @@ async function init() {
   await setupWindowControls();
   await setupTrayListeners();
 
+  // Keep window on screen when dragging
+  try {
+    win.onMoved(async () => {
+      if (!state.miniMode) return;
+      try {
+        const monitor = await win.currentMonitor();
+        if (!monitor) return;
+        const scale = monitor.scaleFactor;
+        const screenW = monitor.size.width / scale;
+        const screenH = monitor.size.height / scale;
+        const pos = await win.outerPosition();
+        const lx = pos.x / scale;
+        const ly = pos.y / scale;
+        const winW = 140, winH = 150;
+        let nx = lx, ny = ly;
+        if (lx < 0) nx = 0;
+        if (ly < 0) ny = 0;
+        if (lx + winW > screenW) nx = screenW - winW;
+        if (ly + winH > screenH) ny = screenH - winH;
+        if (nx !== lx || ny !== ly) {
+          await win.setPosition(new LogicalPosition(Math.round(nx), Math.round(ny)));
+        }
+      } catch (e) {}
+    });
+  } catch (e) {}
 
   // Disable OS window shadow
   setTimeout(() => { try { win.setShadow(false); } catch (e) {} }, 100);

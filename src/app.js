@@ -101,7 +101,8 @@ let state = {
   lunchDuration: 60, // minutes
   offWork: '18:00',
   workStart: '09:00',
-  restCheckId: null, // interval for checking rest time
+  restCheckId: null,
+  soundEnabled: true,
 };
 
 let win;
@@ -331,7 +332,48 @@ function startTimer() {
   }, 500); // Check every 500ms for precision
 }
 
+// --- Sound ---
+function playNotificationSound(isStand = false) {
+  if (!state.soundEnabled) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (isStand) {
+      // Stand→Sit: gentle descending melody (G5 → E5 → C5)
+      const notes = [783.99, 659.25, 523.25];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.25, ctx.currentTime + i * 0.2);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.2 + 0.5);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + i * 0.2);
+        osc.stop(ctx.currentTime + i * 0.2 + 0.6);
+      });
+    } else {
+      // Sit→Stand: energetic ascending melody (C5 → E5 → G5)
+      const notes = [523.25, 659.25, 783.99];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.35, ctx.currentTime + i * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.12 + 0.4);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + i * 0.12);
+        osc.stop(ctx.currentTime + i * 0.12 + 0.5);
+      });
+    }
+  } catch (e) {}
+}
+
 function triggerReminder() {
+  const isStandReminder = state.mode === 'stand';
+  playNotificationSound(isStandReminder);
   if (state.mode === 'sit') {
     state.mode = 'remind-sit';
     showReminder('该站起来啦！', '活动一下，保护你的腰~');
@@ -957,6 +999,10 @@ async function init() {
   if (savedOffWork) state.offWork = savedOffWork;
   if (savedWorkStart) state.workStart = savedWorkStart;
 
+  const savedSound = localStorage.getItem('soundEnabled');
+  if (savedSound !== null) state.soundEnabled = savedSound === 'true';
+  document.getElementById('soundEnabled').checked = state.soundEnabled;
+
   state.total = state.sitMinutes * 60;
   state.remaining = state.sitMinutes * 60;
 
@@ -970,6 +1016,12 @@ async function init() {
   document.getElementById('settingsBtn').addEventListener('click', toggleSettings);
   document.getElementById('settingsCloseBtn').addEventListener('click', toggleSettings);
   document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+
+  // Sound toggle
+  document.getElementById('soundEnabled').addEventListener('change', (e) => {
+    state.soundEnabled = e.target.checked;
+    localStorage.setItem('soundEnabled', state.soundEnabled);
+  });
   document.getElementById('reminderBtn').addEventListener('click', dismissReminder);
 
   // Character switch buttons
